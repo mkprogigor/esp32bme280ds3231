@@ -2,4 +2,5 @@ include
 .pio
 .vscode
 test
+.gitignore
 
