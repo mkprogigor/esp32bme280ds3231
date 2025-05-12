@@ -22,7 +22,7 @@ char ssid[] = WIFI_SSID;
 char pass[] = WIFI_PASS;
 unsigned long my_channel_num = 1059748;
 const char write_api_key[] = MYTS_WR_APIKEY;
-const char read_api_key[]  = MYTS_WR_APIKEY;
+const char read_api_key[]  = MYTS_RD_APIKEY;
 
 static uint32_t gv_task1_ticks = 0;       // quantity mSec passed in task1 
 static bool gv_wifi_fine = false;   // quantity mSec when timers use wifi inet con. 
@@ -286,21 +286,6 @@ static void gf_timer_bmem_send_tsp(TimerHandle_t xTimer) {
     ThingSpeak.setField(1, gv_bme_t); // set the fields with the values
     ThingSpeak.setField(2, gv_bme_p); // Write to ThingSpeak. There are up to 8 fields in a channel.
     ThingSpeak.setField(3, gv_bme_h);
-
-/*    char tv_tist[12];
-    tv_tist[0] = (gv_tist.tm_year - 100) / 10 + 48;
-    tv_tist[1] = (gv_tist.tm_year - 100) % 10 + 48;
-    tv_tist[2] = (gv_tist.tm_mon +1) / 10 + 48;
-    tv_tist[3] = (gv_tist.tm_mon +1) % 10 + 48;
-    tv_tist[4] = gv_tist.tm_mday / 10 + 48;
-    tv_tist[5] = gv_tist.tm_mday % 10 + 48;
-    tv_tist[6] = gv_tist.tm_hour / 10 + 48;
-    tv_tist[7] = gv_tist.tm_hour % 10 + 48;
-    tv_tist[8] = gv_tist.tm_min / 10 + 48;
-    tv_tist[9] = gv_tist.tm_min % 10 + 48;
-    tv_tist[10] = gv_tist.tm_sec / 10 + 48;
-    tv_tist[11] = gv_tist.tm_sec % 10 + 48;
-    ThingSpeak.setStatus(tv_tist);  */
 
     int t_ret_code = ThingSpeak.writeFields(my_channel_num, write_api_key);
     xSemaphoreTake(mutex_serial, 1000);
