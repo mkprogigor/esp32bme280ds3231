@@ -421,7 +421,7 @@ Serial.begin(115200);
   xTaskCreate(task2_bled, "task2_bled", 1400, NULL, 5, &task2h);
   xTaskCreate(task3_disp, "task3_disp", 2100, NULL, 4, &task3h);
   xTaskCreate(task4_prni, "task4_prni", 1400, NULL, 2, &task4h);
-  timer_bmem_send_tsp = xTimerCreate("bmem_send", 300000, pdTRUE, NULL, gf_timer_bmem_send_tsp);
+  timer_bmem_send_tsp = xTimerCreate("bmem_send", 600000, pdTRUE, NULL, gf_timer_bmem_send_tsp);
   xTimerStart(timer_bmem_send_tsp, 0);
   timer_sync_time_rtc = xTimerCreate("sync_time", 3600000, pdTRUE, NULL, gf_timer_sync_time_rtc);
   xTimerStart(timer_sync_time_rtc, 0);
