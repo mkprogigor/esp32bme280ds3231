@@ -78,7 +78,7 @@ uint8_t gf_inc_rtc_reboot()  {    //  var rtc_reboot is in DS3231 by addr 0x07
 }
 
 void gf_prm_cpu_info(){
-  Serial.println("===================== Start MCU Info =====================");
+  Serial.println("=====================  Start MCU Info  =====================");
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
   Serial.print("Chip Model      = "); Serial.println( chip_info.model);
@@ -98,33 +98,42 @@ void gf_prm_cpu_info(){
     Serial.print("PSRAM Size: "); Serial.println(spiram_size);
   }
   else Serial.println("No PSRAM detected.");
-  Serial.println("=====================  End MCU Info  =====================\n");
+  Serial.println("=====================   End MCU Info   =====================\n");
 }
 
 boolean gf_wifi_con() {
-  WiFi.begin(ssid, pass);
-  xSemaphoreTake(mutex_serial, 1000);
-  Serial.print("Connecting to WiFi => ");
-  xSemaphoreGive(mutex_serial);
-  for (u8_t i = 0; i < 16; ++i) {
-    if (WiFi.status() != WL_CONNECTED) {
-      xSemaphoreTake(mutex_serial, 1000);
-      Serial.print("? ");
-      xSemaphoreGive(mutex_serial);
-      vTaskDelay(1000);
-    }
-    else {
-      xSemaphoreTake(mutex_serial, 1000);
-      Serial.println(WiFi.localIP());
-      Serial.println();
-      xSemaphoreGive(mutex_serial);
-      return true;
-    }
+  if (WiFi.status() == WL_CONNECTED)  {
+    xSemaphoreTake(mutex_serial, 1000);
+    Serial.print(WiFi.localIP());
+    Serial.print(" => Conected\n\n");
+    xSemaphoreGive(mutex_serial);
+    return true;
   }
-  xSemaphoreTake(mutex_serial, 1000);
-  Serial.println(" WiFi didn't connect.\n");
-  xSemaphoreGive(mutex_serial);
-  return false;
+  else  {
+    WiFi.begin(ssid, pass);
+    xSemaphoreTake(mutex_serial, 1000);
+    Serial.print("Connecting to WiFi => ");
+    xSemaphoreGive(mutex_serial);
+    for (u8_t i = 0; i < 16; ++i) {
+      if (WiFi.status() != WL_CONNECTED) {
+        xSemaphoreTake(mutex_serial, 1000);
+        Serial.print("? ");
+        xSemaphoreGive(mutex_serial);
+        vTaskDelay(1000);
+      }
+      else {
+        xSemaphoreTake(mutex_serial, 1000);
+        Serial.println(WiFi.localIP());
+        Serial.println();
+        xSemaphoreGive(mutex_serial);
+        return true;
+      }
+    }
+    xSemaphoreTake(mutex_serial, 1000);
+    Serial.println(" WiFi didn't connect.\n");
+    xSemaphoreGive(mutex_serial);
+    return false;    /* code */
+  }
 }
 
 void gf_wifi_scan() {
@@ -198,7 +207,7 @@ void gf_wifi_status() {
     }
     Serial.println();
     gf_wifi_scan();
-    Serial.println("=================== End WiFi Status Info ===================\n");
+    Serial.println("=================== End WiFi Status Info ===================");
   }
 }
 
@@ -402,13 +411,14 @@ static void gf_prn_itasks() { // print to serial stats of tasks
 }
 
 void gf_doit_sleep() {
+  gf_wifi_con();
   gf_timer_bmem_send_tsp();
   // gf_timer_sync_time_rtc();
   gf_prn_itasks();
 
-  // WiFi.disconnect();
+  WiFi.disconnect();
   xSemaphoreTake(mutex_serial, 1000);
-  Serial.print(gv_task1_ticks);  Serial.print(" - Go to light sleep mode.\n\n");
+  Serial.print(gv_task1_ticks);  Serial.print(" - WiFi disconnect, go to light sleep mode.\n\n");
   xSemaphoreGive(mutex_serial);
 
   vTaskSuspend(task3h);
@@ -492,7 +502,7 @@ void setup() {
 
   Serial.begin(115200);
   delay(1000);
-  Serial.println();
+  Serial.println("\n=====================  Start Setup()   =====================");
   gf_prm_cpu_info();
 
   Wire.begin();
@@ -510,8 +520,8 @@ void setup() {
     Serial.println("not found, check cables.");
   }
   else {
-    Serial.print("found, chip code = ");
-    Serial.println(k, HEX);
+    gf_prn_byte(k);
+    Serial.print("chip code.\n\n");
   }
   bme2.begin(FOR_MODE, SB_500MS, FIL_x16, OS_x16, OS_x16, OS_x16);
 
@@ -529,6 +539,7 @@ void setup() {
   xTimerStart(timer_bmem_send_tsp, 0);
   timer_sync_time_rtc = xTimerCreate("sync_time", 3600000, pdTRUE, NULL, gf_timer_sync_time_rtc);
   xTimerStart(timer_sync_time_rtc, 0);  */
+  Serial.println("=====================   End   Setup()  =====================\n");
 }
 
 void loop() {
