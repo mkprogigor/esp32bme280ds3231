@@ -11,7 +11,7 @@
 WiFiClient  wifi_client;
 bme280      bme2;
 
-#define GD_ENABLE_SLEEP 0 // 1 = enable sleep 15 sec
+#define GD_ENABLE_SLEEP 1 // 1 = enable sleep 15 sec
 
 #define DS3231_I2C_ADDRESS 0x68
 
@@ -465,7 +465,7 @@ void task4_smst(void* parameters) { // sent measurent, sync time
       gv_sleep_count++;
 
       vTaskDelay(1000);
-      esp_sleep_enable_timer_wakeup(15000000);  // Go to light sleep 15 sec
+      esp_sleep_enable_timer_wakeup(60000000);  // Go to light sleep 60 sec
       esp_light_sleep_start();                  // possible: esp_deep_sleep_start() OR esp_restart();
       vTaskDelay(1000);
   
@@ -521,9 +521,9 @@ void setup() {
   configTime(3600, 3600, "pool.ntp.org");   // init time.h win NTP server, +1 GMT & +1 summer time
   ThingSpeak.begin(wifi_client);            // Initialize ThingSpeak
 
-  xTaskCreate(task2_bled, "task2_bled", 2400, NULL, 5, &task2h);
+  xTaskCreate(task2_bled, "task2_bled", 1000, NULL, 5, &task2h);
   xTaskCreate(task3_disp, "task3_disp", 2100, NULL, 3, &task3h);
-  xTaskCreate(task4_smst, "task5_smst", 2100, NULL, 2, &task4h);
+  xTaskCreate(task4_smst, "task4_smst", 2400, NULL, 2, &task4h);
 
   Serial.println("=====================   End   Setup()  =====================\n");
 }
