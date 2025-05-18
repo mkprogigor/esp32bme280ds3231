@@ -11,7 +11,7 @@
 WiFiClient  wifi_client;
 bme280      bme2;
 
-#define GD_ENABLE_SLEEP 0
+#define GD_ENABLE_SLEEP 0 // 1 = enable sleep 15 sec
 
 #define DS3231_I2C_ADDRESS 0x68
 
@@ -474,7 +474,7 @@ void task4_smst(void* parameters) { // sent measurent, sync time
       xSemaphoreGive(mutex_serial);
     }
 
-    vTaskDelay(30000);
+    vTaskDelay(60000);
 //  gf_bmem_tph(); Serial.println();
     vTaskResume(task3h);
   }
