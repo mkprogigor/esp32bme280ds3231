@@ -11,6 +11,8 @@
 WiFiClient  wifi_client;
 bme280      bme2;
 
+#define GD_ENABLE_SLEEP 0
+
 #define DS3231_I2C_ADDRESS 0x68
 
 #define SCREEN_WIDTH 132 // OLED display width, in pixels
@@ -25,17 +27,17 @@ const char write_api_key[] = MYTS_WR_APIKEY;
 const char read_api_key[]  = MYTS_RD_APIKEY;
 
 static uint32_t gv_task1_ticks = 0;       // quantity mSec passed in task1 
-static bool gv_wifi_fine = false;   // quantity mSec when timers use wifi inet con. 
 
 static float    gv_bme_p = 0;
 static float    gv_bme_t = 0;
 static float    gv_bme_h = 0;
 struct tm       gv_tist;      // time stamp
-struct_tph      gv_stru_tph;
+struct_tph      gv_stru_tph;  // var structure for T, P, H
 
 TaskHandle_t task1h;
 TaskHandle_t task2h;
 TaskHandle_t task3h;
+TaskHandle_t task4h;
 
 SemaphoreHandle_t mutex_serial;
 SemaphoreHandle_t mutex_I2C;
@@ -225,7 +227,7 @@ byte gf_bcdToDec(byte val)  {   // Convert binary coded decimal to normal decima
 static void gf_writeDS3231() {
   if (gv_tist.tm_sec < 58)  {
     gv_tist.tm_sec++;
-    gv_tist.tm_sec++;
+    // gv_tist.tm_sec++;
   }
   u8_t ds_arr[7];
   ds_arr[0] = gf_decToBcd(gv_tist.tm_sec);
@@ -281,8 +283,7 @@ static void gf_bmem_tph() {
   xSemaphoreGive(mutex_serial);
 }
 
-static void gf_timer_sync_time_rtc() {
-  gv_wifi_fine = false;
+static void gf_sync_ntp2rtc() {
   xSemaphoreTake(mutex_serial, 1000);
   Serial.print(gv_task1_ticks);  Serial.print(" -> Sync time => ");
   xSemaphoreGive(mutex_serial);
@@ -294,29 +295,20 @@ static void gf_timer_sync_time_rtc() {
   if (WiFi.status() == WL_CONNECTED) {
     if (!getLocalTime(&gv_tist)) {
       xSemaphoreTake(mutex_serial, 1000);
-      Serial.println("Failed to obtain time.\n");
+      Serial.print("Failed to obtain time.\n\n");
       xSemaphoreGive(mutex_serial);
-      // xTimerChangePeriod(timer_sync_time_rtc, 60000, 100 );
     }
     else {
       gf_writeDS3231();
       xSemaphoreTake(mutex_serial, 1000);
       Serial.print(&gv_tist);   Serial.print(". NTP to RTC update success.\n\n");
       xSemaphoreGive(mutex_serial);
-      // xTimerChangePeriod(timer_sync_time_rtc, 3600000, 100 );
     }
   }
   else Serial.println("No connection WiFi.Not sync time.\n");
 }
 
-static void gf_timer_bmem_send_tsp() {
-  gv_wifi_fine = false;
-
-  xSemaphoreTake(mutex_serial, 1000);
-  Serial.print(gv_task1_ticks);  Serial.println(" - Measure t,p,h.");
-  xSemaphoreGive(mutex_serial);
-  gf_bmem_tph();
-
+static void gf_bmem_send_ts() {
   if (WiFi.status() != WL_CONNECTED) {
     gf_wifi_con(); // Run only one time to switch ON wifi
   }
@@ -333,7 +325,7 @@ static void gf_timer_bmem_send_tsp() {
     Wire.endTransmission();
     Wire.requestFrom(DS3231_I2C_ADDRESS, 8);
     for (uint8_t i = 0; i < 8; i++)  lv_rtc_dim[i] = Wire.read();
-
+    lv_rtc_dim[2] = lv_rtc_dim[2] & 0x3f;
     lv_rtc_str[0] = gf_byte2char(lv_rtc_dim[2] >> 4);   lv_rtc_str[1] = gf_byte2char(lv_rtc_dim[2]);
     lv_rtc_str[2] = gf_byte2char(lv_rtc_dim[1] >> 4);   lv_rtc_str[3] = gf_byte2char(lv_rtc_dim[1]);
     lv_rtc_str[4] = gf_byte2char(lv_rtc_dim[0] >> 4);   lv_rtc_str[5] = gf_byte2char(lv_rtc_dim[0]);
@@ -348,30 +340,14 @@ static void gf_timer_bmem_send_tsp() {
     //  Serial.print("Status:time + (HEX)(rtc_count + up_reset + up_sleep + up_zzz) = "); 
     Serial.print(gv_task1_ticks);  Serial.print(" -> ");  Serial.println(lv_rtc_str);
     /*  // Function esp_reset_reason() return RESET reason:
-    0 = ESP_RST_UNKNOWN
-    1 = ESP_RST_POWERON
-    2 = ESP_RST_EXT
-    3 = ESP_RST_SW
-    4 = ESP_RST_PANIC
-    5 = ESP_RST_INT_WDT
-    6 = ESP_RST_TASK_WDT
-    7 = ESP_RST_WDT
-    8 = ESP_RST_DEEPSLEEP
-    9 = ESP_RST_BROWNOUT
-    10 = ESP_RST_SDIO
+    0 = ESP_RST_UNKNOWN       1 = ESP_RST_POWERON       2 = ESP_RST_EXT       3 = ESP_RST_SW
+    4 = ESP_RST_PANIC         5 = ESP_RST_INT_WDT       6 = ESP_RST_TASK_WDT  7 = ESP_RST_WDT
+    8 = ESP_RST_DEEPSLEEP     9 = ESP_RST_BROWNOUT      10 = ESP_RST_SDIO     
     // Function esp_sleep_get_wakeup_cause() return SLEEP reason:
-    0 = ESP_SLEEP_UNKNOWN
-    1 = ESP_SLEEP_WAKEUP_ALL
-    2 = ESP_SLEEP_WAKEUP_EXT0
-    3 = ESP_SLEEP_WAKEUP_EXT1
-    4 = ESP_SLEEP_WAKEUP_TIMER
-    5 = ESP_SLEEP_WAKEUP_TOUCHPAD
-    6 = ESP_SLEEP_WAKEUP_ULP
-    7 = ESP_SLEEP_WAKEUP_GPIO
-    8 = ESP_SLEEP_WAKEUP_UART
-    9 = ESP_SLEEP_WAKEUP_WIFI
-    10 = ESP_SLEEP_WAKEUP_COCPU
-    11 = ESP_SLEEP_WAKEUP_COCPU_TRAP_TRIG
+    0 = ESP_SLEEP_UNKNOWN         1 = ESP_SLEEP_WAKEUP_ALL        2 = ESP_SLEEP_WAKEUP_EXT0
+    3 = ESP_SLEEP_WAKEUP_EXT1     4 = ESP_SLEEP_WAKEUP_TIMER      5 = ESP_SLEEP_WAKEUP_TOUCHPAD
+    6 = ESP_SLEEP_WAKEUP_ULP      7 = ESP_SLEEP_WAKEUP_GPIO       8 = ESP_SLEEP_WAKEUP_UART
+    9 = ESP_SLEEP_WAKEUP_WIFI     10 = ESP_SLEEP_WAKEUP_COCPU     11 = ESP_SLEEP_WAKEUP_COCPU_TRAP_TRIG
     12 = ESP_SLEEP_WAKEUP_BT                */
     ThingSpeak.setStatus(lv_rtc_str);
 
@@ -391,8 +367,6 @@ static void gf_timer_bmem_send_tsp() {
     Serial.print(gv_task1_ticks);
     Serial.println(" -> No connection WiFi. Data not send to ThingSpeak.\n");
   }
-
-  gv_wifi_fine = true;
 }
 
 static void gf_prn_itasks() { // print to serial stats of tasks
@@ -406,40 +380,10 @@ static void gf_prn_itasks() { // print to serial stats of tasks
   Serial.print(", StackHigh_WM = "); Serial.println(uxTaskGetStackHighWaterMark(task2h));
   Serial.print("Task = "); Serial.print(pcTaskGetName(task3h));
   Serial.print(", StackHigh_WM = "); Serial.println(uxTaskGetStackHighWaterMark(task3h));
+  Serial.print("Task = "); Serial.print(pcTaskGetName(task4h));
+  Serial.print(", StackHigh_WM = "); Serial.println(uxTaskGetStackHighWaterMark(task4h));
   Serial.println();
   xSemaphoreGive(mutex_serial);
-}
-
-void gf_doit_sleep() {
-  gf_wifi_con();
-  gf_timer_bmem_send_tsp();
-  // gf_timer_sync_time_rtc();
-  gf_prn_itasks();
-
-  WiFi.disconnect();
-  xSemaphoreTake(mutex_serial, 1000);
-  Serial.print(gv_task1_ticks);  Serial.print(" - WiFi disconnect, go to light sleep mode.\n\n");
-  xSemaphoreGive(mutex_serial);
-
-  vTaskSuspend(task3h);
-  xSemaphoreTake(mutex_I2C, 1000);
-  dispOLED.clearDisplay();  dispOLED.display();
-  xSemaphoreGive(mutex_I2C);
-  gv_sleep_count++;
-  gv_bme_t = 0;
-  gv_bme_p = 0;
-  gv_bme_h = 0;
-  
-  vTaskDelay(1000);
-  esp_sleep_enable_timer_wakeup(15000000);  // Go to light sleep 15 sec
-  esp_light_sleep_start();                  // possible: esp_deep_sleep_start() OR esp_restart();
-
-  vTaskResume(task3h);
-  xSemaphoreTake(mutex_serial, 1000);
-  Serial.print(gv_task1_ticks);  Serial.print(" - Wake Up from light sleep mode.\n\n");
-  xSemaphoreGive(mutex_serial);
-  
-  vTaskDelay(1000); gf_bmem_tph(); Serial.println();
 }
 
 void task1_t1ms(void* parameters) { // task1 high priorite, calc xTaskGetTickCount of task1
@@ -450,24 +394,11 @@ void task1_t1ms(void* parameters) { // task1 high priorite, calc xTaskGetTickCou
 }
 
 void task2_bled(void* parameters) { // blink LED buildin one time in 2 sec
-  uint8_t lv_iter_tph = 0, lv_iter_ntp = 5;
   while (1) {
     digitalWrite(2, LOW);
     vTaskDelay(1990);
     digitalWrite(2, HIGH);
     vTaskDelay(10);
-
-    lv_iter_tph++;
-    if (lv_iter_tph > 5) {
-      digitalWrite(2, LOW);
-      lv_iter_tph = 0;
-      lv_iter_ntp++;
-      if (lv_iter_ntp > 4) {
-        lv_iter_ntp = 0;
-        gf_timer_sync_time_rtc();
-      }
-      gf_doit_sleep();
-    }
   }
 }
 
@@ -491,6 +422,64 @@ void task3_disp(void* parameters) { // diplay info to OLED display
   }
 }
 
+void task4_smst(void* parameters) { // sent measurent, sync time
+  vTaskDelay(10000);
+  uint8_t lv_iter_tph = 0;
+
+  while (1) {
+    gf_prn_itasks();
+    gf_wifi_con();
+    vTaskDelay(1000);
+
+    xSemaphoreTake(mutex_serial, 1000);
+    Serial.print(gv_task1_ticks);  Serial.println(" -> Measure t,p,h.");
+    xSemaphoreGive(mutex_serial);
+    gf_bmem_tph();
+  
+    xSemaphoreTake(mutex_serial, 1000);
+    Serial.print(gv_task1_ticks);  Serial.println(" -> Sent t,p,h. => ThingSpeak.com");
+    xSemaphoreGive(mutex_serial);
+    gf_bmem_send_ts();
+
+    lv_iter_tph++;
+    if (lv_iter_tph > 4) {    // do not update ntp time 4 volte
+        lv_iter_tph = 0;
+        gf_sync_ntp2rtc();
+    }
+     
+    xSemaphoreTake(mutex_serial, 1000);
+    Serial.print(gv_task1_ticks);  Serial.println(" -> WiFi disconnect.\n");
+    xSemaphoreGive(mutex_serial);
+    WiFi.disconnect();
+
+    vTaskSuspend(task3h);
+    xSemaphoreTake(mutex_I2C, 1000);
+    dispOLED.clearDisplay();  dispOLED.display();
+    xSemaphoreGive(mutex_I2C);
+    gv_bme_t = 0;   gv_bme_p = 0;   gv_bme_h = 0;   // tph => zero.
+
+    if (GD_ENABLE_SLEEP == 1) {
+      xSemaphoreTake(mutex_serial, 1000);
+      Serial.print(gv_task1_ticks);  Serial.println(" -> go to light sleep mode.");
+      xSemaphoreGive(mutex_serial);
+      gv_sleep_count++;
+
+      vTaskDelay(1000);
+      esp_sleep_enable_timer_wakeup(15000000);  // Go to light sleep 15 sec
+      esp_light_sleep_start();                  // possible: esp_deep_sleep_start() OR esp_restart();
+      vTaskDelay(1000);
+  
+      xSemaphoreTake(mutex_serial, 1000);
+      Serial.print(gv_task1_ticks);  Serial.print(" -> Wake Up from light sleep mode.\n\n");
+      xSemaphoreGive(mutex_serial);
+    }
+
+    vTaskDelay(30000);
+//  gf_bmem_tph(); Serial.println();
+    vTaskResume(task3h);
+  }
+}
+
 /***************************************************************************************/
 void setup() {
   setCpuFrequencyMhz(80); //  must be First. following frequencies as valid values:
@@ -501,9 +490,9 @@ void setup() {
   mutex_I2C    = xSemaphoreCreateMutex();
 
   Serial.begin(115200);
-  delay(1000);
+  vTaskDelay(2000);
   Serial.println("\n=====================  Start Setup()   =====================");
-  gf_prm_cpu_info();
+  // gf_prm_cpu_info();
 
   Wire.begin();
   pinMode(2, OUTPUT);
@@ -517,7 +506,7 @@ void setup() {
   uint8_t k = bme2.f_check_bme();
   vTaskDelay(100);
   if (k == 0) {
-    Serial.println("not found, check cables.");
+    Serial.print("not found, check cables.\n\n");
   }
   else {
     gf_prn_byte(k);
@@ -526,25 +515,22 @@ void setup() {
   bme2.begin(FOR_MODE, SB_500MS, FIL_x16, OS_x16, OS_x16, OS_x16);
 
   WiFi.mode(WIFI_STA);
-  gf_wifi_con();
-  gf_wifi_status();
+  //  gf_wifi_con();
+  //  gf_wifi_status();
   vTaskDelay(1000);
   configTime(3600, 3600, "pool.ntp.org");   // init time.h win NTP server, +1 GMT & +1 summer time
-  ThingSpeak.begin(wifi_client);  // Initialize ThingSpeak
+  ThingSpeak.begin(wifi_client);            // Initialize ThingSpeak
 
   xTaskCreate(task2_bled, "task2_bled", 2400, NULL, 5, &task2h);
-  xTaskCreate(task3_disp, "task3_disp", 2100, NULL, 4, &task3h);
-  /*
-  timer_bmem_send_tsp = xTimerCreate("bmem_send", 600000, pdTRUE, NULL, gf_timer_bmem_send_tsp);
-  xTimerStart(timer_bmem_send_tsp, 0);
-  timer_sync_time_rtc = xTimerCreate("sync_time", 3600000, pdTRUE, NULL, gf_timer_sync_time_rtc);
-  xTimerStart(timer_sync_time_rtc, 0);  */
+  xTaskCreate(task3_disp, "task3_disp", 2100, NULL, 3, &task3h);
+  xTaskCreate(task4_smst, "task5_smst", 2100, NULL, 2, &task4h);
+
   Serial.println("=====================   End   Setup()  =====================\n");
 }
 
 void loop() {
-  vTaskDelay(1000);
   gf_bmem_tph();
+  Serial.print("\n\n");
   while (1) {
   }
 }

@@ -67,7 +67,6 @@ struct_tph bme280::f_read_TPH(void) {
     #define BME280_U32_t uint32_t
     #define BME280_S64_t int64_t
     struct_tph lv_tph;
-	bme280::_read_calibr_coeff();
 
 	uint8_t _lv_regs[8];
 	Wire.beginTransmission(_i2c_address);   // addr of first byte raw data Humi
