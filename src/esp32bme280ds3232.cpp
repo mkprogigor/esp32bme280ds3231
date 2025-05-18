@@ -11,7 +11,7 @@
 WiFiClient  wifi_client;
 bme280      bme2;
 
-#define GD_ENABLE_SLEEP 1 // 1 = enable sleep 15 sec
+#define GD_ENABLE_SLEEP 0 // 1 = enable sleep 15 sec
 
 #define DS3231_I2C_ADDRESS 0x68
 
