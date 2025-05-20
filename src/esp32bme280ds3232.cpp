@@ -452,7 +452,7 @@ void task4_smst(void* parameters) { // sent measurent, sync time
     xSemaphoreGive(mutex_serial);
     WiFi.disconnect();
 
-    vTaskSuspend(task3h);
+    // vTaskSuspend(task3h);
     xSemaphoreTake(mutex_I2C, 1000);
     dispOLED.clearDisplay();  dispOLED.display();
     xSemaphoreGive(mutex_I2C);
@@ -476,8 +476,19 @@ void task4_smst(void* parameters) { // sent measurent, sync time
 
     vTaskDelay(60000);
 //  gf_bmem_tph(); Serial.println();
-    vTaskResume(task3h);
+    // vTaskResume(task3h);
   }
+
+
+
+
+
+
+
+
+
+
+
 }
 
 /***************************************************************************************/
