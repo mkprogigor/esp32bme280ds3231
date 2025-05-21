@@ -269,7 +269,11 @@ static void gf_bmem_tph() {
   xSemaphoreTake(mutex_I2C, 1000);
   bme2.f_do_1_meas();
   vTaskDelay(200);
-  while (bme2.f_bme_is_meas()) vTaskDelay(10);
+  for (uint8_t i = 0; i < 100; i++) {
+    if (bme2.f_bme_is_meas()) vTaskDelay(10);
+    else break;
+  }
+
   gv_stru_tph = bme2.f_read_TPH();
   xSemaphoreGive(mutex_I2C);
   gv_bme_t = ((float)(gv_stru_tph.temp1)) / 100;
