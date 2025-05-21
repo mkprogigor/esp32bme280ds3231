@@ -141,7 +141,8 @@ struct_tph bme280::f_read_TPH(void) {
     return lv_tph;
 }
 
-bme280::bme280() {};
+bme280::bme280() {};	// create an object of class bme280
+
 //============================================
 //    private metods (funcs)
 //============================================
