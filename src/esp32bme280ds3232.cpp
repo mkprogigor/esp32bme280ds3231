@@ -225,9 +225,8 @@ byte gf_bcdToDec(byte val)  {   // Convert binary coded decimal to normal decima
 }
 
 static void gf_writeDS3231() {
-  if (gv_tist.tm_sec < 58)  {
+  if (gv_tist.tm_sec < 59)  {
     gv_tist.tm_sec++;
-    // gv_tist.tm_sec++;
   }
   u8_t ds_arr[7];
   ds_arr[0] = gf_decToBcd(gv_tist.tm_sec);
@@ -240,7 +239,7 @@ static void gf_writeDS3231() {
 
   xSemaphoreTake(mutex_I2C, portMAX_DELAY);    // sets time and date data to DS3231
   Wire.beginTransmission(DS3231_I2C_ADDRESS);
-  Wire.write(0); // set next input to start at the seconds register
+  Wire.write(0);
   for (u8_t i = 0; i < 7; i++)  Wire.write(ds_arr[i]);
   Wire.endTransmission();
   xSemaphoreGive(mutex_I2C);
