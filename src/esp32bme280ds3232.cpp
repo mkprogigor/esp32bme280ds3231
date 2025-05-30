@@ -266,14 +266,14 @@ static void gf_readDS3231() {
 
 static void gf_bmem_tph() {
   xSemaphoreTake(mutex_I2C, 1000);
-  bme2.f_do_1_meas();
+  bme2.bme_do1meas();
   vTaskDelay(200);
   for (uint8_t i = 0; i < 100; i++) {
-    if (bme2.f_bme_is_meas()) vTaskDelay(10);
+    if (bme2.bme_is_meas()) vTaskDelay(10);
     else break;
   }
 
-  gv_stru_tph = bme2.f_read_TPH();
+  gv_stru_tph = bme2.bme_read_TPH();
   xSemaphoreGive(mutex_I2C);
   gv_bme_t = ((float)(gv_stru_tph.temp1)) / 100;
   gv_bme_p = gf_Pa2mmHg(((float)(gv_stru_tph.pres1)) / 100);
@@ -517,7 +517,7 @@ void setup() {
   dispOLED.setTextSize(1);  dispOLED.display();
 
   Serial.print("Check a bme280 => "); // check bme280 and SW reset
-  uint8_t k = bme2.f_check_bme();
+  uint8_t k = bme2.bme_check();
   vTaskDelay(100);
   if (k == 0) {
     Serial.print("not found, check cables.\n\n");

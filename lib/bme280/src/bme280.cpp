@@ -1,3 +1,14 @@
+/************************************************************************************
+Library for test and use in weather stations with Bosch i2c sensor bme280
+by Igor Mkprog, mkprogigor@gmail.com
+
+use examples:
+https://github.com/AlexGyver/GyverLibs/blob/master/GyverBME280/
+https://github.com/farmerkeith/BMP280-library/
+https://github.com/farmerkeith/I2CScanner/
+
+V1.0 from 01.06.2025
+************************************************************************************/
 #include "bme280.h"
 
 uint8_t _i2c_address = 0x76;
@@ -5,7 +16,7 @@ uint8_t _reg_0xF2 = 0x07;	//	config regs osr_h[2:0]
 uint8_t _reg_0xF4 = 0xFE;	//	config regs osr_t[7:5] osr_p[4:2] mode[1:0]
 uint8_t _reg_0xF5 = 0x9C;	//	config regs t_sb[7:5] filter[4:2] spi3w_en[0]
 
-uint8_t bme280::f_check_bme(void) {		// check is it conected bme280,
+uint8_t bme280::bme_check(void) {		// check is it conected bme280,
 	//	if YES ret chip_code (0x60) then do software reset, if NO ret 0. 
 	Wire.begin(); // start I2C interface
 	uint8_t error;
@@ -44,7 +55,7 @@ bool bme280::begin() {	// defaults are 16x; Normal mode; 0.5ms, no filter, I2C
 
 bool bme280::begin(uint8_t mode, uint8_t t_sb, uint8_t filter, uint8_t osrs_t, uint8_t osrs_p, uint8_t osrs_h) {	// init bme280
 //	Wire.begin(); // start I2C interface
-	bme280::_read_calibr_coeff();
+	bme280::_f_read_calibr_coeff();
 	_reg_0xF2 = osrs_h;
 	_reg_0xF4 = (osrs_t<<5) | (osrs_p<<2) | mode;
 	_reg_0xF5 = (t_sb  <<5) | (filter<<2) | 0x00;
@@ -54,15 +65,15 @@ bool bme280::begin(uint8_t mode, uint8_t t_sb, uint8_t filter, uint8_t osrs_t, u
 	return true;
 };    
 
-bool bme280::f_bme_is_meas(void)	{	// returns TRUE while bme280 is measuring								
+bool bme280::bme_is_meas(void)	{	// returns TRUE while bme280 is measuring								
 	return (bool)((bme280::_f_read_reg(0xF3) & 0x08) >> 3);  	 // read status register & mask bit "measuring"
 }
 
-void bme280::f_do_1_meas(void) {        // operating mode FORCED_MODE do 1 measuring
+void bme280::bme_do1meas(void) {        // operating mode FORCED_MODE do 1 measuring
 	bme280::_f_write_reg( 0xF4, ((_reg_0xF4 & 0xFC) | 0x02) );   
 }
 
-struct_tph bme280::f_read_TPH(void) {
+struct_tph bme280::bme_read_TPH(void) {
     #define BME280_S32_t int32_t
     #define BME280_U32_t uint32_t
     #define BME280_S64_t int64_t
@@ -167,7 +178,7 @@ bool bme280::_f_reset(void) {     //  software reset of bme280
     else return false;
 }
 
-void bme280::_read_calibr_coeff(void) {
+void bme280::_f_read_calibr_coeff(void) {
     uint8_t _tv_regs[25];
 	
 	Wire.beginTransmission(_i2c_address);   // first part request
