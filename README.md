@@ -7,4 +7,5 @@ and print it to OLED display SH1106.
 
 Time and values of Temperature, Pressure, Humidity sent to ThingSpeak.com <br>
 
-Closed, nothing intereting. FreeRTOS don't work good. Maybe it is bad chinee hardware, maybe it is problem with soft :-( 
+Closed, nothing intereting. FreeRTOS don't work good. Maybe it is bad chinee hardware, maybe it is problem with soft :-( <BR>
+https://youtu.be/hlpVMd4tN6c
