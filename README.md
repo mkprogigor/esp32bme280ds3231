@@ -3,7 +3,9 @@ Simple example of get started to learn FreeRTOS on PlatformIO (VSCODE, Arduino f
 
 Read Temperature, Pressure, Humidity from Bosch sensor BME280,
 use RTC ds3231 to sync time with NTP server (lib time.h),
-and print it to OLED display SH1106.
+and print it to OLED display SH1106.<BR>
+
+![Scheme](images/esp32bme280ds3231sh1106.png)<br>
 
 Time and values of Temperature, Pressure, Humidity sent to ThingSpeak.com <br>
 
