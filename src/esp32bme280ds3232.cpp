@@ -3,10 +3,11 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH1106.h>
 #include "time.h"
-#include "bme280.h"
 #include "Wire.h"
 #include "ThingSpeak.h"
 #include "mydef.h"
+#include <mkigor_std.cpp>
+#include "mkigor_bme280.h"
 
 WiFiClient  wifi_client;
 bme280      bme2;
@@ -48,18 +49,6 @@ SemaphoreHandle_t mutex_I2C;
 RTC_DATA_ATTR uint8_t gv_sleep_count = 0;
 
 /***************************************************************************************/
-char gf_byte2char(uint8_t lv_byte1){   // translate 0xBA => 'A'
-  uint8_t lv_b1 = lv_byte1 & 0x0F;
-  if (lv_b1>9) lv_b1 = lv_b1+55;
-  else         lv_b1 = lv_b1+48;
-  return lv_b1;
-}
-void gf_prn_byte(uint8_t lv_byte){   // print byte like "FCh "
-  Serial.print(gf_byte2char(lv_byte>>4));
-  Serial.print(gf_byte2char(lv_byte));
-  Serial.print("h ");
-}
-
 uint8_t gf_inc_rtc_reboot()  {    //  var rtc_reboot is in DS3231 by addr 0x07
   uint8_t _lv_t;
   Wire.beginTransmission(DS3231_I2C_ADDRESS);
@@ -77,30 +66,6 @@ uint8_t gf_inc_rtc_reboot()  {    //  var rtc_reboot is in DS3231 by addr 0x07
 	Wire.write(_lv_t);
 	if (Wire.endTransmission() == 0) return _lv_t;
 	else return 0;
-}
-
-void gf_prm_cpu_info(){
-  Serial.println("=====================  Start MCU Info  =====================");
-  esp_chip_info_t chip_info;
-  esp_chip_info(&chip_info);
-  Serial.print("Chip Model      = "); Serial.println( chip_info.model);
-  Serial.print("Cores           = "); Serial.println( chip_info.cores);
-  Serial.print("Revision number = "); Serial.println( chip_info.revision);
-  Serial.print("Full rev.number = "); Serial.println( chip_info.full_revision);
-  Serial.print("Features, BIN   = "); Serial.println( chip_info.features, BIN);
-  Serial.print("CPU Freq, MHz   = ");   Serial.println(getCpuFrequencyMhz());
-  Serial.print("XTAL Freq,  MHz = ");   Serial.println(getXtalFrequencyMhz());
-  Serial.print("APB Freq, Hz    = ");   Serial.println(getApbFrequency());
-  Serial.print("esp_get_idf_version()              = ");  Serial.println(esp_get_idf_version());
-  Serial.print("esp_get_free_heap_size()           = ");  Serial.println(esp_get_free_heap_size());
-  Serial.print("heap_caps_get_free_size()          = ");  Serial.println(heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-  Serial.print("heap_caps_get_largest_free_block() = ");  Serial.println(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
-  size_t spiram_size = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
-  if (spiram_size) {
-    Serial.print("PSRAM Size: "); Serial.println(spiram_size);
-  }
-  else Serial.println("No PSRAM detected.");
-  Serial.println("=====================   End MCU Info   =====================\n");
 }
 
 boolean gf_wifi_con() {
@@ -138,90 +103,8 @@ boolean gf_wifi_con() {
   }
 }
 
-void gf_wifi_scan() {
-  xSemaphoreTake(mutex_serial, portMAX_DELAY);
-  Serial.println("Scan WiFi networks =>");
-  xSemaphoreGive(mutex_serial);
-  u8_t n = WiFi.scanNetworks();
-  if (n > 0) {
-    for (u8_t i = 0; i < n; ++i) {  // Print SSID and RSSI for each network found
-      xSemaphoreTake(mutex_serial, portMAX_DELAY);
-      Serial.print(i + 1);
-      Serial.print(": SSID=");
-      Serial.print(WiFi.SSID(i));
-      Serial.print(",\tRSSI=(");
-      Serial.print(WiFi.RSSI(i));
-      Serial.print("),\tEncr.= " );
-      Serial.println(WiFi.encryptionType(i));
-      xSemaphoreGive(mutex_serial);
-    }
-  }
-  else {
-    xSemaphoreTake(mutex_serial, portMAX_DELAY);
-    Serial.println("No networks found.");
-    xSemaphoreGive(mutex_serial);
-  }
-}
-
-void gf_wifi_status() {
-  Serial.println("===================== WiFi Status Info =====================");
-  byte tv_wifist = WiFi.status();
-  Serial.print(tv_wifist); Serial.print(" - ");
-  switch (tv_wifist)  {
-  case WL_CONNECTED:
-    Serial.println("WL_CONNECTED");
-    break;
-    case WL_NO_SHIELD:
-    Serial.println("WL_NO_SHIELD");
-    break;
-    case WL_IDLE_STATUS:
-    Serial.println("WL_IDLE_STATUS");
-    break;
-    case WL_CONNECT_FAILED:
-    Serial.println("WL_CONNECT_FAILED");
-    break;
-    case WL_NO_SSID_AVAIL:
-    Serial.println("WL_NO_SSID_AVAIL");
-    break;
-    case WL_SCAN_COMPLETED:
-    Serial.println("WL_SCAN_COMPLETED");
-    break;
-    case WL_CONNECTION_LOST:
-    Serial.println("WL_CONNECTION_LOST");
-    break;
-    case WL_DISCONNECTED:
-    Serial.println("WL_DISCONNECTED");
-    break;
-    default:
-    Serial.println("undefine.");
-    break;
-  }
-  if (tv_wifist == 3)  {
-    Serial.print("IP "); Serial.print(WiFi.localIP());
-    Serial.print(", MASK "); Serial.print(WiFi.subnetMask());
-    Serial.print(", GATE "); Serial.print(WiFi.gatewayIP());
-    Serial.print(", DNS  "); Serial.print(WiFi.dnsIP());
-    Serial.print(", MAC: ");
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-    for (uint8_t i = 6; i > 0; i--) {
-      Serial.print(mac[i-1],HEX); Serial.print(":");
-    }
-    Serial.println();
-    gf_wifi_scan();
-    Serial.println("=================== End WiFi Status Info ===================");
-  }
-}
-
 float gf_Pa2mmHg(float pressure) {  // convert Pa to mmHg
 	return (float)(pressure * 0.00750061683f);
-}
-
-byte gf_decToBcd(byte val)  {   // Convert normal decimal numbers to binary coded decimal
-  return(((val/10) << 4) | (val%10)); 
-}
-byte gf_bcdToDec(byte val)  {   // Convert binary coded decimal to normal decimal numbers
-  return((val/16*10) + (val%16));
 }
 
 static void gf_writeDS3231() {
