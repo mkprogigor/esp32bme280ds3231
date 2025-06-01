@@ -1,6 +1,8 @@
 include
 test
+lib
 .pio
 .vscode
 .gitignore
+platformio.ini
 
