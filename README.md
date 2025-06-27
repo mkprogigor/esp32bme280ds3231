@@ -1,5 +1,5 @@
 # FreeRTOS, esp32 bme280 ds3231 sh1106
-Simple example of get started to learn FreeRTOS on PlatformIO (VSCODE, Arduino framefork) with esp32.
+Simple example of get started to learn FreeRTOS on PlatformIO (VSCODE, Arduino framefork) with esp32, (closed, it is not interesting).
 
 Read Temperature, Pressure, Humidity from Bosch sensor BME280,
 use RTC ds3231 to sync time with NTP server (lib time.h),
